@@ -29,38 +29,45 @@ public static class Program
         ConfigureLogging();
         try
         {
-            using var mutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);
-            if (!createdNew)
-            {
-                Log.Warning("Eine andere Instanz von CleanupTempFiles läuft bereits. Breche ab.");
-                return 2;
-            }
-
             try
             {
-                Log.Information("CleanupTempFiles gestartet. Modus: {Mode}", execute ? "EXECUTE" : "DRY-RUN");
+                using var mutex = new Mutex(initiallyOwned: true, MutexName, out var createdNew);
+                if (!createdNew)
+                {
+                    Log.Warning("Eine andere Instanz von CleanupTempFiles läuft bereits. Breche ab.");
+                    return 2;
+                }
 
-                CleanupSettings settings;
                 try
                 {
-                    var settingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-                    settings = CleanupSettingsLoader.Load(settingsPath);
+                    Log.Information("CleanupTempFiles gestartet. Modus: {Mode}", execute ? "EXECUTE" : "DRY-RUN");
+
+                    CleanupSettings settings;
+                    try
+                    {
+                        var settingsPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+                        settings = CleanupSettingsLoader.Load(settingsPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Konnte Konfiguration nicht laden.");
+                        return 1;
+                    }
+
+                    DirectoryCleaner.CleanAll(settings.Directories, settings.MarkerFileName, execute);
+
+                    Log.Information("CleanupTempFiles beendet.");
+                    return 0;
                 }
-                catch (Exception ex)
+                finally
                 {
-                    Log.Error(ex, "Konnte Konfiguration nicht laden.");
-                    return 1;
+                    mutex.ReleaseMutex();
                 }
-
-                foreach (var directory in settings.Directories)
-                    DirectoryCleaner.Clean(directory, settings.MarkerFileName, execute);
-
-                Log.Information("CleanupTempFiles beendet.");
-                return 0;
             }
-            finally
+            catch (Exception ex)
             {
-                mutex.ReleaseMutex();
+                Log.Fatal(ex, "Unerwarteter Fehler.");
+                return 1;
             }
         }
         finally

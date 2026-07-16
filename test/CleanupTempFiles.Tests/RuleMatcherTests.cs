@@ -63,4 +63,17 @@ public class RuleMatcherTests
 
         Assert.Equal([file], result);
     }
+
+    [Fact]
+    public void WildcardStarDotStar_AlsoMatchesFilesWithoutExtension()
+    {
+        // "*.*" hat unter Windows historisch eine Sonderbedeutung ("alle Dateien, auch ohne Endung").
+        // Wer in der Marker-Datei "*.* " fuer "alles aufraeumen" nutzt, verlaesst sich darauf.
+        var file = TestData.File(@"C:\temp\noextension", Now - TimeSpan.FromDays(2));
+        var rules = new[] { TestData.Rule("*.*", "1.00:00:00") };
+
+        var result = RuleMatcher.SelectFilesToDelete([file], rules, Now);
+
+        Assert.Equal([file], result);
+    }
 }

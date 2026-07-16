@@ -38,4 +38,37 @@ public class CleanupSettingsLoaderTests
 
         Assert.Throws<InvalidOperationException>(() => CleanupSettingsLoader.Load(path));
     }
+
+    [Fact]
+    public void Load_Throws_WhenDirectoriesKeyIsMissingEntirely()
+    {
+        using var dir = new TempDirectory();
+        var path = dir.WriteFile("appsettings.json", DateTime.UtcNow, """
+            { "markerFileName": ".cleanuptempfiles.json" }
+            """);
+
+        Assert.Throws<InvalidOperationException>(() => CleanupSettingsLoader.Load(path));
+    }
+
+    [Fact]
+    public void Load_Throws_WhenMarkerFileNameIsMissing()
+    {
+        using var dir = new TempDirectory();
+        var path = dir.WriteFile("appsettings.json", DateTime.UtcNow, """
+            { "directories": [ "C:\\Temp" ] }
+            """);
+
+        Assert.Throws<InvalidOperationException>(() => CleanupSettingsLoader.Load(path));
+    }
+
+    [Fact]
+    public void Load_Throws_WhenDirectoryEntryIsNotRooted()
+    {
+        using var dir = new TempDirectory();
+        var path = dir.WriteFile("appsettings.json", DateTime.UtcNow, """
+            { "markerFileName": ".cleanuptempfiles.json", "directories": [ "relative\\path" ] }
+            """);
+
+        Assert.Throws<InvalidOperationException>(() => CleanupSettingsLoader.Load(path));
+    }
 }
