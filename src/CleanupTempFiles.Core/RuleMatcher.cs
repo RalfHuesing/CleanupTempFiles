@@ -5,14 +5,21 @@ namespace CleanupTempFiles;
 public static class RuleMatcher
 {
     // Erste passende Regel (nach Reihenfolge in der Marker-Datei) entscheidet über den Alters-Schwellwert.
+    // exclude-Muster werden zuerst geprüft und gewinnen immer, unabhängig von den Regeln.
     public static IEnumerable<FileCandidate> SelectFilesToDelete(
         IEnumerable<FileCandidate> files,
         IReadOnlyList<CleanupRule> rules,
+        IReadOnlyList<string> excludePatterns,
         DateTime nowUtc)
     {
         foreach (var file in files)
         {
-            var rule = FindMatchingRule(file.FullPath, rules);
+            var fileName = Path.GetFileName(file.FullPath);
+
+            if (excludePatterns.Any(pattern => MatchesPattern(fileName, pattern)))
+                continue;
+
+            var rule = FindMatchingRule(fileName, rules);
             if (rule is null)
                 continue;
 
@@ -22,9 +29,8 @@ public static class RuleMatcher
         }
     }
 
-    private static CleanupRule? FindMatchingRule(string filePath, IReadOnlyList<CleanupRule> rules)
+    private static CleanupRule? FindMatchingRule(string fileName, IReadOnlyList<CleanupRule> rules)
     {
-        var fileName = Path.GetFileName(filePath);
         foreach (var rule in rules)
         {
             if (MatchesPattern(fileName, rule.Pattern))

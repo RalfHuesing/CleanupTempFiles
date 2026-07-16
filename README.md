@@ -23,12 +23,22 @@ Gedacht für den periodischen Aufruf über die Windows-Aufgabenplanung.
   "directories": [
     "C:\\Users\\ralf\\AppData\\Local\\Temp",
     "C:\\Windows\\Temp"
-  ]
+  ],
+  "deniedDirectories": [
+    "C:\\Windows",
+    "C:\\Program Files",
+    "C:\\Program Files (x86)",
+    "C:\\ProgramData",
+    "C:\\Users"
+  ],
+  "runTimeoutMinutes": 30
 }
 ```
 
 - `markerFileName` – Name der Marker-Datei, nach der in jedem der `directories` gesucht wird.
 - `directories` – feste Liste der zu betrachtenden Verzeichnisse (keine Wildcards/Platzhalter). Müssen absolute Pfade sein. Ist ein Verzeichnis nicht erreichbar oder fehlerhaft, wird nur dieses übersprungen – die übrigen werden trotzdem bearbeitet.
+- `deniedDirectories` – zusätzliche Sperrliste gegen Konfigurationsfehler: Ist eines der konfigurierten `directories` (exakt, nicht als Unterordner) in dieser Liste, weigert sich das Tool schon beim Start, die appsettings.json zu laden. Optional – ohne diesen Schlüssel gelten die oben gezeigten Standardwerte. **Laufwerkswurzeln (`C:\`, `D:\`, …) sind zusätzlich immer gesperrt, unabhängig von dieser Liste.** Ein Unterordner wie `C:\Windows\Temp` bleibt davon unberührt und ist weiterhin ein gültiges Ziel.
+- `runTimeoutMinutes` – bricht einen hängenden Lauf (z. B. durch ein nicht antwortendes Netzlaufwerk) nach dieser Zeit ab, damit die Mutex-Sperre nicht dauerhaft blockiert. Optional, Standard 30 Minuten. Muss > 0 sein.
 
 ## Marker-Datei
 
@@ -41,7 +51,8 @@ Liegt direkt im jeweiligen Zielverzeichnis, z. B. `C:\Windows\Temp\.cleanuptempf
     { "pattern": "*.pdf", "olderThan": "2.00:00:00" },
     { "pattern": "*.tmp", "olderThan": "00:10:00" },
     { "pattern": "*.*",   "olderThan": "1.00:00:00" }
-  ]
+  ],
+  "exclude": [ "important.log" ]
 }
 ```
 
@@ -49,22 +60,40 @@ Liegt direkt im jeweiligen Zielverzeichnis, z. B. `C:\Windows\Temp\.cleanuptempf
 - `rules` – Liste von Regeln, Reihenfolge = Priorität. Für jede Datei gilt die *erste* Regel, deren `pattern` passt.
   - `pattern` – Wildcard-Ausdruck (`*`, `?`), z. B. `*.pdf`. `*.*` ist als Spezialfall "alle Dateien" zu verstehen (auch ohne Dateiendung), wie unter Windows historisch üblich.
   - `olderThan` – Mindestalter (Schreibdatum) im .NET-`TimeSpan`-Format `d.hh:mm:ss`, z. B. `00:10:00` (10 Minuten) oder `2.00:00:00` (2 Tage). Muss ≥ 0 sein.
+- `exclude` – optionale Liste von Wildcard-Mustern (gleiche Syntax wie `pattern`). Eine Datei, die auf ein `exclude`-Muster passt, wird **nie** gelöscht, egal welche `rules` sonst zutreffen würden. Prüfung erfolgt nur gegen den Dateinamen, nicht rekursiv gegen Unterverzeichnisnamen.
 - Es werden auch versteckte Dateien und Dateien mit System-Attribut erfasst – im Temp-Verzeichnis üblich, würden sonst nie aufgeräumt.
 - Die Marker-Datei selbst wird nie gelöscht, auch wenn eine Regel wie `*.*` darauf passen würde.
-- Fehlt ein Pflichtfeld oder ist ein Wert ungültig (z. B. negatives `olderThan`), wird die gesamte Marker-Datei als fehlerhaft verworfen und das Verzeichnis übersprungen – lieber nichts tun als etwas Falsches.
+- Fehlt ein Pflichtfeld oder ist ein Wert ungültig (z. B. negatives `olderThan`, leeres `exclude`-Muster), wird die gesamte Marker-Datei als fehlerhaft verworfen und das Verzeichnis übersprungen – lieber nichts tun als etwas Falsches.
 
 ## CLI
 
 ```
 CleanupTempFiles.exe             # Dry-Run: protokolliert nur, löscht nichts
 CleanupTempFiles.exe --execute   # löscht tatsächlich
+CleanupTempFiles.exe --validate  # prüft appsettings.json + alle Marker-Dateien, löscht/simuliert nichts
 ```
 
-Exit Codes: `0` OK, `1` Konfigurationsfehler, `2` es läuft bereits eine andere Instanz.
+`--execute` und `--validate` schließen sich gegenseitig aus.
+
+Am Ende eines Dry-Run- oder Execute-Laufs protokolliert das Tool eine Zusammenfassung, z. B.:
+
+```
+Lauf abgeschlossen: 12 Verzeichnis(se) verarbeitet, 143 Datei(en) gelöscht (52428800 Bytes), 1 Verzeichnis(se) mit Problemen.
+```
+
+### Exit Codes
+
+| Code | Bedeutung |
+| --- | --- |
+| `0` | Alles ok |
+| `1` | Konfigurationsfehler (appsettings.json ungültig, Denylist-Verstoß) oder unerwarteter Fehler; bei `--validate` auch: mindestens eine Marker-Datei fehlerhaft |
+| `2` | Es läuft bereits eine andere Instanz |
+| `3` | Lauf abgeschlossen, aber mit Teilfehlern (mindestens ein Verzeichnis fehlte, hatte eine fehlerhafte Marker-Datei oder eine Datei konnte nicht gelöscht werden) |
+| `4` | Zeitüberschreitung (`runTimeoutMinutes`) – der Lauf wurde abgebrochen |
 
 ## Windows-Aufgabenplanung
 
-Aufgabe anlegen, die periodisch `CleanupTempFiles.exe --execute` ausführt. Läuft eine vorherige Instanz noch (z. B. bei sehr kurzen Intervallen und vielen Dateien), bricht die neue Instanz sofort mit Exit Code `2` ab, statt parallel zu laufen.
+Aufgabe anlegen, die periodisch `CleanupTempFiles.exe --execute` ausführt. Läuft eine vorherige Instanz noch (z. B. bei sehr kurzen Intervallen und vielen Dateien), bricht die neue Instanz sofort mit Exit Code `2` ab, statt parallel zu laufen. `CleanupTempFiles.exe --validate` eignet sich, um appsettings.json/Marker-Dateien nach einer Config-Änderung schnell zu prüfen, ohne auf den nächsten geplanten Lauf zu warten.
 
 ## Build
 
