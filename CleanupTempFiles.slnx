@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CleanupTempFiles.Core/CleanupTempFiles.Core.csproj" />
+    <Project Path="src/CleanupTempFiles/CleanupTempFiles.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/CleanupTempFiles.Tests/CleanupTempFiles.Tests.csproj" />
+  </Folder>
+</Solution>
