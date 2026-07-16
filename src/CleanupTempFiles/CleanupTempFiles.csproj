@@ -5,6 +5,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Version>1.0.0</Version>
 
     <!-- Single-file deploy: one .exe, no loose dependency DLLs next to it. -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
