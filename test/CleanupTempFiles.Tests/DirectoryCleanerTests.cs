@@ -113,6 +113,7 @@ public class DirectoryCleanerTests
         DirectoryCleaner.Clean(dir.DirectoryPath, ".cleanuptempfiles.json", execute: true);
 
         Assert.True(File.Exists(untouchedFile));
+        Assert.True(Directory.Exists(junctionPath)); // die Junction selbst wird nie angefasst, auch nicht von der Leerverzeichnis-Bereinigung
 
         // Junction vor dem TempDirectory-Teardown entfernen: rekursives Directory.Delete
         // ueber eine noch bestehende Junction hinweg verhaelt sich unter Windows nicht zuverlaessig.
@@ -212,5 +213,99 @@ public class DirectoryCleanerTests
         Assert.Equal(1, summary.FilesAffected);
         Assert.Equal(5, summary.BytesAffected);
         Assert.Equal(1, summary.DirectoriesWithErrors);
+    }
+
+    [Fact]
+    public void Recursive_RemovesDirectoryThatBecomesEmptyAfterCleanup()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": true, "rules": [ { "pattern": "*.tmp", "olderThan": "00:00:00" } ] }""");
+        dir.WriteFile(Path.Combine("sub", "old.tmp"), DateTime.UtcNow.AddDays(-1));
+
+        var result = DirectoryCleaner.Clean(dir.DirectoryPath, ".cleanuptempfiles.json", execute: true);
+
+        Assert.False(Directory.Exists(Path.Combine(dir.DirectoryPath, "sub")));
+        Assert.Equal(1, result.EmptyDirectoriesRemoved);
+    }
+
+    [Fact]
+    public void Recursive_RemovesNestedEmptyDirectoriesInOnePass()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": true, "rules": [ { "pattern": "*.tmp", "olderThan": "00:00:00" } ] }""");
+        dir.WriteFile(Path.Combine("sub", "nested", "old.tmp"), DateTime.UtcNow.AddDays(-1));
+
+        var result = DirectoryCleaner.Clean(dir.DirectoryPath, ".cleanuptempfiles.json", execute: true);
+
+        Assert.False(Directory.Exists(Path.Combine(dir.DirectoryPath, "sub", "nested")));
+        Assert.False(Directory.Exists(Path.Combine(dir.DirectoryPath, "sub")));
+        Assert.Equal(2, result.EmptyDirectoriesRemoved);
+    }
+
+    [Fact]
+    public void Recursive_NeverRemovesTheTargetRootDirectoryItself()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": true, "rules": [ { "pattern": "*.tmp", "olderThan": "00:00:00" } ] }""");
+        dir.WriteFile(Path.Combine("sub", "old.tmp"), DateTime.UtcNow.AddDays(-1));
+
+        DirectoryCleaner.Clean(dir.DirectoryPath, ".cleanuptempfiles.json", execute: true);
+
+        Assert.True(Directory.Exists(dir.DirectoryPath));
+    }
+
+    [Fact]
+    public void Recursive_LeavesDirectoryAloneIfAProtectedFileRemains()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""
+            { "recursive": true, "rules": [ { "pattern": "*.*", "olderThan": "00:00:00" } ], "exclude": [ "keep.log" ] }
+            """);
+        dir.WriteFile(Path.Combine("sub", "keep.log"), DateTime.UtcNow.AddDays(-1));
+
+        DirectoryCleaner.Clean(dir.DirectoryPath, ".cleanuptempfiles.json", execute: true);
+
+        Assert.True(Directory.Exists(Path.Combine(dir.DirectoryPath, "sub")));
+    }
+
+    [Fact]
+    public void NonRecursive_DoesNotRemoveEmptyDirectories()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": false, "rules": [ { "pattern": "*.tmp", "olderThan": "00:00:00" } ] }""");
+        Directory.CreateDirectory(Path.Combine(dir.DirectoryPath, "already-empty"));
+
+        var result = DirectoryCleaner.Clean(dir.DirectoryPath, ".cleanuptempfiles.json", execute: true);
+
+        Assert.True(Directory.Exists(Path.Combine(dir.DirectoryPath, "already-empty")));
+        Assert.Equal(0, result.EmptyDirectoriesRemoved);
+    }
+
+    [Fact]
+    public void DryRun_DoesNotRemoveEmptyDirectories()
+    {
+        // Im Dry-Run wird alte.tmp nie wirklich geloescht, "sub" ist also nie wirklich leer -
+        // die Leerverzeichnis-Bereinigung greift bewusst nur bei echtem --execute (siehe DirectoryCleaner.Clean).
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": true, "rules": [ { "pattern": "*.tmp", "olderThan": "00:00:00" } ] }""");
+        dir.WriteFile(Path.Combine("sub", "old.tmp"), DateTime.UtcNow.AddDays(-1));
+
+        var result = DirectoryCleaner.Clean(dir.DirectoryPath, ".cleanuptempfiles.json", execute: false);
+
+        Assert.True(Directory.Exists(Path.Combine(dir.DirectoryPath, "sub")));
+        Assert.Equal(0, result.EmptyDirectoriesRemoved);
+    }
+
+    [Fact]
+    public void DryRun_DoesNotAttemptRemovalEvenForAlreadyEmptyDirectory()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": true, "rules": [ { "pattern": "*.tmp", "olderThan": "00:00:00" } ] }""");
+        Directory.CreateDirectory(Path.Combine(dir.DirectoryPath, "already-empty"));
+
+        var result = DirectoryCleaner.Clean(dir.DirectoryPath, ".cleanuptempfiles.json", execute: false);
+
+        Assert.True(Directory.Exists(Path.Combine(dir.DirectoryPath, "already-empty")));
+        Assert.Equal(0, result.EmptyDirectoriesRemoved);
     }
 }

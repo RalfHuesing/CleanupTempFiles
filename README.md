@@ -56,7 +56,7 @@ Liegt direkt im jeweiligen Zielverzeichnis, z. B. `C:\Windows\Temp\.cleanuptempf
 }
 ```
 
-- `recursive` – `true`: Regeln gelten für den gesamten Unterbaum (auch ohne eigene Marker-Datei in den Unterverzeichnissen). `false`: nur Dateien direkt im Verzeichnis. Symlinks/Junctions werden dabei nicht verfolgt – ein rekursiver Lauf verlässt das Zielverzeichnis nie.
+- `recursive` – `true`: Regeln gelten für den gesamten Unterbaum (auch ohne eigene Marker-Datei in den Unterverzeichnissen). `false`: nur Dateien direkt im Verzeichnis. Symlinks/Junctions werden dabei nicht verfolgt – ein rekursiver Lauf verlässt das Zielverzeichnis nie. Bei `--execute` werden zusätzlich Unterverzeichnisse entfernt, die nach dem Aufräumen leer sind (kaskadierend, auch mehrstufig) – das Zielverzeichnis selbst (mit der Marker-Datei) wird dabei nie angefasst. Im Dry-Run passiert das bewusst nicht: Da Dateien dort nie wirklich gelöscht werden, wäre eine Vorschau nur eine unvollständige Untergrenze.
 - `rules` – Liste von Regeln, Reihenfolge = Priorität. Für jede Datei gilt die *erste* Regel, deren `pattern` passt.
   - `pattern` – Wildcard-Ausdruck (`*`, `?`), z. B. `*.pdf`. `*.*` ist als Spezialfall "alle Dateien" zu verstehen (auch ohne Dateiendung), wie unter Windows historisch üblich.
   - `olderThan` – Mindestalter (Schreibdatum) im .NET-`TimeSpan`-Format `d.hh:mm:ss`, z. B. `00:10:00` (10 Minuten) oder `2.00:00:00` (2 Tage). Muss ≥ 0 sein.
@@ -78,7 +78,7 @@ CleanupTempFiles.exe --validate  # prüft appsettings.json + alle Marker-Dateien
 Am Ende eines Dry-Run- oder Execute-Laufs protokolliert das Tool eine Zusammenfassung, z. B.:
 
 ```
-Lauf abgeschlossen: 12 Verzeichnis(se) verarbeitet, 143 Datei(en) gelöscht (52428800 Bytes), 1 Verzeichnis(se) mit Problemen.
+Lauf abgeschlossen: 12 Verzeichnis(se) verarbeitet, 143 Datei(en) gelöscht (52428800 Bytes), 4 leere Verzeichnis(se) entfernt, 1 Verzeichnis(se) mit Problemen.
 ```
 
 ### Exit Codes
