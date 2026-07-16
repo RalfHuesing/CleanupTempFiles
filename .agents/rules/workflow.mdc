@@ -1,0 +1,11 @@
+---
+description: Wie hier agentisch gearbeitet wird
+---
+
+# Workflow
+
+- Dieses Projekt wird voll-agentisch und autonom entwickelt. Nicht bei jedem einzelnen Schritt nachfragen oder auf Bestätigung warten.
+- Ausnahme: Bei echten Architektur- oder Verhaltensentscheidungen, die sich nicht eindeutig aus bestehendem Code, dieser Rules-Datei oder der Aufgabenstellung ableiten lassen, aktiv nachfragen statt zu raten. Lieber einmal zu viel fragen als in eine falsche Richtung tief investieren.
+- Git-Commits werden eigenständig und ohne Rückfrage erstellt, sobald ein sinnvoller, in sich abgeschlossener Arbeitsschritt fertig ist (z. B. "Core-Logik implementiert", "Tests für RuleMatcher ergänzt"). Kleine, klare Commits statt einem Riesen-Commit am Ende.
+- Committen ohne Rückfrage ist für dieses Projekt explizit erlaubt – das ist eine bewusste Ausnahme von der sonst üblichen Zurückhaltung bei Git-Operationen.
+- Push, Force-Push, Branch-Löschen und ähnlich risikoreiche/destruktive Git-Operationen bleiben davon unberührt und brauchen weiterhin explizite Zustimmung.

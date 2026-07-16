@@ -1,0 +1,14 @@
+---
+description: Test-Strategie für CleanupTempFiles
+---
+
+# Testing
+
+- xUnit v3 (`xunit3`-Template), ein Testprojekt: `test/CleanupTempFiles.Tests`.
+- Jedes nicht-triviale Feature braucht Tests. Löschlogik ist per Definition nicht trivial.
+- Kernlogik (`RuleMatcher`) ist als reine Funktion über einfache Datentypen (`FileCandidate`, `CleanupRule`) implementiert – testbar ganz ohne Dateisystemzugriff, kein Mocking nötig.
+- I/O-lastige Logik (`DirectoryCleaner`, `MarkerFileLoader`, `CleanupSettingsLoader`) wird gegen echte temporäre Verzeichnisse getestet, nicht gegen ein Mocking-Framework oder eine Dateisystem-Abstraktion (kein `System.IO.Abstractions` o.ä. – passt nicht zur "kein DI/keine Interface-Wüsten"-Regel).
+- Testinfrastruktur zur Vermeidung von Boilerplate liegt in eigenen Dateien und wird von allen Tests wiederverwendet:
+  - `TempDirectory` (`test/CleanupTempFiles.Tests/TempDirectory.cs`): erzeugt ein isoliertes temporäres Verzeichnis pro Test, räumt sich per `IDisposable` selbst auf.
+  - `TestData` (`test/CleanupTempFiles.Tests/TestData.cs`): kurze Builder für `FileCandidate`/`CleanupRule` in reinen Logik-Tests.
+- Neue wiederkehrende Testmuster gehören in diese Infrastruktur statt in jedem Test dupliziert zu werden.
