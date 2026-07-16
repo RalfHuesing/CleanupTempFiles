@@ -60,4 +60,52 @@ public class MarkerFileLoaderTests
         Assert.Null(marker);
         Assert.NotNull(error);
     }
+
+    [Fact]
+    public void ReturnsError_WhenRulesKeyIsMissingEntirely()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": false }""");
+
+        var marker = MarkerFileLoader.TryLoad(dir.DirectoryPath, ".cleanuptempfiles.json", out var error);
+
+        Assert.Null(marker);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void ReturnsError_WhenRulePatternIsMissing()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": false, "rules": [ { "olderThan": "1.00:00:00" } ] }""");
+
+        var marker = MarkerFileLoader.TryLoad(dir.DirectoryPath, ".cleanuptempfiles.json", out var error);
+
+        Assert.Null(marker);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void ReturnsError_WhenRuleOlderThanIsMissing()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": false, "rules": [ { "pattern": "*.tmp" } ] }""");
+
+        var marker = MarkerFileLoader.TryLoad(dir.DirectoryPath, ".cleanuptempfiles.json", out var error);
+
+        Assert.Null(marker);
+        Assert.NotNull(error);
+    }
+
+    [Fact]
+    public void ReturnsError_WhenOlderThanIsNegative()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""{ "recursive": false, "rules": [ { "pattern": "*.tmp", "olderThan": "-1.00:00:00" } ] }""");
+
+        var marker = MarkerFileLoader.TryLoad(dir.DirectoryPath, ".cleanuptempfiles.json", out var error);
+
+        Assert.Null(marker);
+        Assert.NotNull(error);
+    }
 }

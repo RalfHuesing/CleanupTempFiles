@@ -28,7 +28,7 @@ Gedacht für den periodischen Aufruf über die Windows-Aufgabenplanung.
 ```
 
 - `markerFileName` – Name der Marker-Datei, nach der in jedem der `directories` gesucht wird.
-- `directories` – feste Liste der zu betrachtenden Verzeichnisse (keine Wildcards/Platzhalter).
+- `directories` – feste Liste der zu betrachtenden Verzeichnisse (keine Wildcards/Platzhalter). Müssen absolute Pfade sein. Ist ein Verzeichnis nicht erreichbar oder fehlerhaft, wird nur dieses übersprungen – die übrigen werden trotzdem bearbeitet.
 
 ## Marker-Datei
 
@@ -45,11 +45,13 @@ Liegt direkt im jeweiligen Zielverzeichnis, z. B. `C:\Windows\Temp\.cleanuptempf
 }
 ```
 
-- `recursive` – `true`: Regeln gelten für den gesamten Unterbaum (auch ohne eigene Marker-Datei in den Unterverzeichnissen). `false`: nur Dateien direkt im Verzeichnis.
+- `recursive` – `true`: Regeln gelten für den gesamten Unterbaum (auch ohne eigene Marker-Datei in den Unterverzeichnissen). `false`: nur Dateien direkt im Verzeichnis. Symlinks/Junctions werden dabei nicht verfolgt – ein rekursiver Lauf verlässt das Zielverzeichnis nie.
 - `rules` – Liste von Regeln, Reihenfolge = Priorität. Für jede Datei gilt die *erste* Regel, deren `pattern` passt.
-  - `pattern` – Wildcard-Ausdruck (`*`, `?`), z. B. `*.pdf`, `*.*`.
-  - `olderThan` – Mindestalter (Schreibdatum) im .NET-`TimeSpan`-Format `d.hh:mm:ss`, z. B. `00:10:00` (10 Minuten) oder `2.00:00:00` (2 Tage).
+  - `pattern` – Wildcard-Ausdruck (`*`, `?`), z. B. `*.pdf`. `*.*` ist als Spezialfall "alle Dateien" zu verstehen (auch ohne Dateiendung), wie unter Windows historisch üblich.
+  - `olderThan` – Mindestalter (Schreibdatum) im .NET-`TimeSpan`-Format `d.hh:mm:ss`, z. B. `00:10:00` (10 Minuten) oder `2.00:00:00` (2 Tage). Muss ≥ 0 sein.
+- Es werden auch versteckte Dateien und Dateien mit System-Attribut erfasst – im Temp-Verzeichnis üblich, würden sonst nie aufgeräumt.
 - Die Marker-Datei selbst wird nie gelöscht, auch wenn eine Regel wie `*.*` darauf passen würde.
+- Fehlt ein Pflichtfeld oder ist ein Wert ungültig (z. B. negatives `olderThan`), wird die gesamte Marker-Datei als fehlerhaft verworfen und das Verzeichnis übersprungen – lieber nichts tun als etwas Falsches.
 
 ## CLI
 

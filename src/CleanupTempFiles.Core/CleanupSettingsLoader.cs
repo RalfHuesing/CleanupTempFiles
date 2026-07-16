@@ -15,8 +15,20 @@ public static class CleanupSettingsLoader
         var settings = JsonSerializer.Deserialize<CleanupSettings>(json, JsonOptions)
             ?? throw new InvalidOperationException($"Konnte '{path}' nicht als Konfiguration lesen.");
 
-        if (settings.Directories.Count == 0)
+        if (string.IsNullOrWhiteSpace(settings.MarkerFileName))
+            throw new InvalidOperationException("Konfiguration enthält keinen markerFileName.");
+
+        if (settings.Directories is not { Count: > 0 })
             throw new InvalidOperationException("Konfiguration enthält keine Directories.");
+
+        foreach (var directory in settings.Directories)
+        {
+            if (string.IsNullOrWhiteSpace(directory))
+                throw new InvalidOperationException("Konfiguration enthält einen leeren Directory-Eintrag.");
+
+            if (!Path.IsPathRooted(directory))
+                throw new InvalidOperationException($"Directory-Eintrag ist kein absoluter Pfad: '{directory}'.");
+        }
 
         return settings;
     }

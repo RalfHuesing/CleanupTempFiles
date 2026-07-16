@@ -4,6 +4,21 @@ namespace CleanupTempFiles;
 
 public static class DirectoryCleaner
 {
+    public static void CleanAll(IEnumerable<string> directories, string markerFileName, bool execute)
+    {
+        foreach (var directory in directories.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                Clean(directory, markerFileName, execute);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Unerwarteter Fehler beim Bearbeiten von {Directory}. Überspringe.", directory);
+            }
+        }
+    }
+
     public static void Clean(string directoryPath, string markerFileName, bool execute)
     {
         if (!Directory.Exists(directoryPath))
@@ -23,9 +38,17 @@ public static class DirectoryCleaner
         }
 
         var markerFilePath = Path.Combine(directoryPath, markerFileName);
-        var searchOption = marker.Recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
 
-        var candidates = Directory.EnumerateFiles(directoryPath, "*", searchOption)
+        // Standardmaessig ueberspringt Directory.EnumerateFiles Hidden/System-Dateien - genau die Art
+        // Datei, die sich in Temp-Verzeichnissen ansammelt. AttributesToSkip = ReparsePoint verhindert
+        // im Gegenzug, dass ein rekursiver Lauf ueber Symlinks/Junctions das Zielverzeichnis verlaesst.
+        var enumerationOptions = new EnumerationOptions
+        {
+            RecurseSubdirectories = marker.Recursive,
+            AttributesToSkip = FileAttributes.ReparsePoint,
+        };
+
+        var candidates = Directory.EnumerateFiles(directoryPath, "*", enumerationOptions)
             .Where(path => !string.Equals(path, markerFilePath, StringComparison.OrdinalIgnoreCase))
             .Select(path => new FileCandidate(path, File.GetLastWriteTimeUtc(path)));
 

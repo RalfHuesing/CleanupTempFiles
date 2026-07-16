@@ -27,10 +27,21 @@ public static class RuleMatcher
         var fileName = Path.GetFileName(filePath);
         foreach (var rule in rules)
         {
-            if (FileSystemName.MatchesSimpleExpression(rule.Pattern, fileName))
+            if (MatchesPattern(fileName, rule.Pattern))
                 return rule;
         }
 
         return null;
+    }
+
+    private static bool MatchesPattern(string fileName, string pattern)
+    {
+        // "*.*" gilt - wie unter Windows historisch ueblich - als "alle Dateien", auch ohne Dateiendung.
+        // FileSystemName.MatchesSimpleExpression folgt dagegen strikter Glob-Semantik und würde das
+        // ohne diese Sonderbehandlung ablehnen, wenn der Dateiname keinen Punkt enthält.
+        if (pattern == "*.*")
+            return true;
+
+        return FileSystemName.MatchesSimpleExpression(pattern, fileName);
     }
 }
