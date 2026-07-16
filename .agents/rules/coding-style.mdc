@@ -1,0 +1,15 @@
+---
+description: Coding-Stil für CleanupTempFiles
+---
+
+# Coding Style
+
+- Einfacher, direkter Code statt Enterprise-Boilerplate. Kein Pattern um des Patterns willen.
+- Namespaces verwenden, aber flach halten (`CleanupTempFiles` für Core-Logik und Host).
+- Early Returns statt tief verschachtelter if/else-Blöcke.
+- Keine Interfaces auf Vorrat. Ein Interface nur, wenn es tatsächlich mehrere Implementierungen gibt oder geben wird. Für dieses Tool aktuell: keine.
+- Kein DI-Container. Abhängigkeiten werden als Parameter durchgereicht oder direkt als statische Methode aufgerufen.
+- Keine Service-/Manager-/Repository-Schichten nur der Architektur wegen. Eine Klasse pro fachlichem Konzept reicht.
+- Records für unveränderliche Daten (Models wie `CleanupRule`, `MarkerFile`, `FileCandidate`), statische Klassen für zustandslose Logik (`RuleMatcher`, `DirectoryCleaner`, Loader).
+- Kommentare nur, wenn das *Warum* nicht aus dem Code hervorgeht (nicht-offensichtliche Constraints, Workarounds). Kein Beschreiben von *Was* der Code tut.
+- Immer die neuesten stabilen NuGet-Paketversionen verwenden, keine Versionen künstlich niedrig halten.
