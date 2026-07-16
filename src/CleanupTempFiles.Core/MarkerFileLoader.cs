@@ -48,7 +48,13 @@ public static class MarkerFileLoader
                 rules.Add(new CleanupRule(rule.Pattern, olderThan));
             }
 
-            return new MarkerFile(dto.Recursive, rules);
+            if (dto.Exclude is { } exclude && exclude.Any(string.IsNullOrWhiteSpace))
+            {
+                error = "Marker-Datei enthält ein leeres 'exclude'-Muster.";
+                return null;
+            }
+
+            return new MarkerFile(dto.Recursive, rules, dto.Exclude ?? []);
         }
         catch (JsonException ex)
         {
@@ -57,7 +63,7 @@ public static class MarkerFileLoader
         }
     }
 
-    private sealed record MarkerFileDto(bool Recursive, List<MarkerRuleDto>? Rules);
+    private sealed record MarkerFileDto(bool Recursive, List<MarkerRuleDto>? Rules, List<string>? Exclude);
 
     private sealed record MarkerRuleDto(string? Pattern, string? OlderThan);
 }

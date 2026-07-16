@@ -1,3 +1,3 @@
 namespace CleanupTempFiles;
 
-public readonly record struct FileCandidate(string FullPath, DateTime LastWriteTimeUtc);
+public readonly record struct FileCandidate(string FullPath, DateTime LastWriteTimeUtc, long Length);

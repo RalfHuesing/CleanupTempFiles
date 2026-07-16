@@ -35,6 +35,44 @@ public class MarkerFileLoaderTests
         Assert.Equal(2, marker.Rules.Count);
         Assert.Equal("*.pdf", marker.Rules[0].Pattern);
         Assert.Equal(TimeSpan.FromDays(2), marker.Rules[0].OlderThan);
+        Assert.Empty(marker.ExcludePatterns);
+    }
+
+    [Fact]
+    public void ParsesExcludePatterns()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""
+            {
+              "recursive": false,
+              "rules": [ { "pattern": "*.*", "olderThan": "1.00:00:00" } ],
+              "exclude": [ "important.log", "keep-*" ]
+            }
+            """);
+
+        var marker = MarkerFileLoader.TryLoad(dir.DirectoryPath, ".cleanuptempfiles.json", out var error);
+
+        Assert.Null(error);
+        Assert.NotNull(marker);
+        Assert.Equal(["important.log", "keep-*"], marker.ExcludePatterns);
+    }
+
+    [Fact]
+    public void ReturnsError_WhenExcludePatternIsBlank()
+    {
+        using var dir = new TempDirectory();
+        dir.WriteMarker("""
+            {
+              "recursive": false,
+              "rules": [ { "pattern": "*.*", "olderThan": "1.00:00:00" } ],
+              "exclude": [ "" ]
+            }
+            """);
+
+        var marker = MarkerFileLoader.TryLoad(dir.DirectoryPath, ".cleanuptempfiles.json", out var error);
+
+        Assert.Null(marker);
+        Assert.NotNull(error);
     }
 
     [Fact]
