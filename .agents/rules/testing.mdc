@@ -12,3 +12,21 @@ description: Test-Strategie für CleanupTempFiles
   - `TempDirectory` (`test/CleanupTempFiles.Tests/TempDirectory.cs`): erzeugt ein isoliertes temporäres Verzeichnis pro Test, räumt sich per `IDisposable` selbst auf.
   - `TestData` (`test/CleanupTempFiles.Tests/TestData.cs`): kurze Builder für `FileCandidate`/`CleanupRule` in reinen Logik-Tests.
 - Neue wiederkehrende Testmuster gehören in diese Infrastruktur statt in jedem Test dupliziert zu werden.
+
+## Edge Cases statt nur Happy Path
+
+Der Happy Path allein reicht bei diesem Tool nicht - es löscht Dateien, Fehler dort sind teuer. Bei jedem Feature und bei jedem Audit aktiv nach Edge Cases suchen, nicht nur den vorgesehenen Ablauf testen. Kategorien, die für dieses Projekt erfahrungsgemäß relevant sind:
+
+- Fehlende/`null`/leere/negative Werte in appsettings.json und Marker-Datei (nicht nur "valides JSON mit allen Feldern").
+- Dateisystem-Eigenheiten von Windows, die von der naiven .NET-API-Nutzung abweichen: versteckte/System-Dateien (Standard-`EnumerationOptions` überspringt sie!), Symlinks/Junctions bei rekursiver Verarbeitung, Wildcard-Sonderfälle (`*.*` matcht unter Windows historisch auch Dateien ohne Endung, `FileSystemName.MatchesSimpleExpression` tut das *nicht* automatisch).
+- Teilausfälle: Ein fehlerhaftes/unzugängliches Verzeichnis darf die Verarbeitung der übrigen konfigurierten Verzeichnisse nicht verhindern.
+- Unerwartete Exceptions brauchen ein Auffangnetz (sauberer Log-Eintrag + Exit Code statt rohem Stacktrace), nicht nur die explizit erwarteten Fehlerfälle.
+
+## Test-getriebenes Vorgehen bei Audits/Bugfixes
+
+Bei Verdacht auf einen Bug (eigene Analyse oder Audit): erst einen Test schreiben, der ihn nachweist, dann den Fix schreiben, bis der Test grün ist. Nicht blind fixen und hoffen. Ablauf:
+
+1. Edge Case identifizieren und Verdacht formulieren (z. B. "matcht `*.*` wirklich Dateien ohne Endung?").
+2. Test schreiben, der genau dieses Verhalten prüft, und laufen lassen. Schlägt er fehl (und zwar aus dem erwarteten Grund, nicht z. B. wegen eines Kompilierfehlers), ist der Bug bestätigt.
+3. Fix implementieren, bis der Test grün ist, ohne die übrige Testsuite zu brechen.
+4. Der beweisende Test bleibt als Regressionstest dauerhaft in der Suite - nicht nach dem Fix wieder löschen.
