@@ -9,6 +9,7 @@ public static class DirectoryCleaner
         var directoriesProcessed = 0;
         var filesAffected = 0;
         long bytesAffected = 0;
+        var emptyDirectoriesRemoved = 0;
         var directoriesWithErrors = 0;
 
         foreach (var directory in directories.Distinct(StringComparer.OrdinalIgnoreCase))
@@ -19,6 +20,7 @@ public static class DirectoryCleaner
                 var result = Clean(directory, markerFileName, execute);
                 filesAffected += result.FilesAffected;
                 bytesAffected += result.BytesAffected;
+                emptyDirectoriesRemoved += result.EmptyDirectoriesRemoved;
                 if (result.HadError)
                     directoriesWithErrors++;
             }
@@ -29,7 +31,7 @@ public static class DirectoryCleaner
             }
         }
 
-        return new CleanupSummary(directoriesProcessed, filesAffected, bytesAffected, directoriesWithErrors);
+        return new CleanupSummary(directoriesProcessed, filesAffected, bytesAffected, emptyDirectoriesRemoved, directoriesWithErrors);
     }
 
     public static DirectoryCleanupResult Clean(string directoryPath, string markerFileName, bool execute)
@@ -37,7 +39,7 @@ public static class DirectoryCleaner
         if (!Directory.Exists(directoryPath))
         {
             Log.Warning("Verzeichnis {Directory} existiert nicht. Überspringe.", directoryPath);
-            return new DirectoryCleanupResult(0, 0, HadError: true);
+            return new DirectoryCleanupResult(0, 0, 0, HadError: true);
         }
 
         var marker = MarkerFileLoader.TryLoad(directoryPath, markerFileName, out var error);
@@ -46,11 +48,11 @@ public static class DirectoryCleaner
             if (error is not null)
             {
                 Log.Warning("Marker-Datei in {Directory} fehlerhaft: {Error}. Überspringe.", directoryPath, error);
-                return new DirectoryCleanupResult(0, 0, HadError: true);
+                return new DirectoryCleanupResult(0, 0, 0, HadError: true);
             }
 
             Log.Debug("Keine Marker-Datei in {Directory}. Überspringe.", directoryPath);
-            return new DirectoryCleanupResult(0, 0, HadError: false);
+            return new DirectoryCleanupResult(0, 0, 0, HadError: false);
         }
 
         var markerFilePath = Path.Combine(directoryPath, markerFileName);
@@ -77,7 +79,7 @@ public static class DirectoryCleaner
 
         var filesAffected = 0;
         long bytesAffected = 0;
-        var hadDeleteError = false;
+        var hadError = false;
 
         foreach (var file in toDelete)
         {
@@ -88,11 +90,22 @@ public static class DirectoryCleaner
             }
             else
             {
-                hadDeleteError = true;
+                hadError = true;
             }
         }
 
-        return new DirectoryCleanupResult(filesAffected, bytesAffected, hadDeleteError);
+        // Nur bei echtem --execute: im Dry-Run wurden die Dateien nie wirklich geloescht, ein Verzeichnis
+        // koennte also nie tatsaechlich leer sein. Eine simulierte Vorschau waere hier nur eine Untergrenze
+        // und damit irrefuehrend - lieber ehrlich nichts melden als eine falsche Zahl.
+        var emptyDirectoriesRemoved = 0;
+        if (marker.Recursive && execute)
+        {
+            var (removed, removalHadError) = RemoveEmptyDirectories(directoryPath);
+            emptyDirectoriesRemoved = removed;
+            hadError |= removalHadError;
+        }
+
+        return new DirectoryCleanupResult(filesAffected, bytesAffected, emptyDirectoriesRemoved, hadError);
     }
 
     private static bool DeleteOrLog(FileCandidate file, bool execute)
@@ -114,5 +127,43 @@ public static class DirectoryCleaner
             Log.Warning(ex, "Konnte {Path} nicht löschen. Überspringe.", file.FullPath);
             return false;
         }
+    }
+
+    private static (int Removed, bool HadError) RemoveEmptyDirectories(string rootPath)
+    {
+        var enumerationOptions = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            AttributesToSkip = FileAttributes.ReparsePoint,
+        };
+
+        // Tiefste Verzeichnisse zuerst: OrderByDescending materialisiert die Liste vollstaendig, bevor
+        // die erste Loeschung passiert, und laesst ein leer gewordenes Kind sein Elternverzeichnis
+        // im selben Durchlauf ebenfalls leer werden.
+        var subdirectories = Directory.EnumerateDirectories(rootPath, "*", enumerationOptions)
+            .OrderByDescending(path => path.Count(c => c == Path.DirectorySeparatorChar));
+
+        var removed = 0;
+        var hadError = false;
+
+        foreach (var directory in subdirectories)
+        {
+            if (Directory.EnumerateFileSystemEntries(directory).Any())
+                continue;
+
+            try
+            {
+                Directory.Delete(directory);
+                Log.Information("Leeres Verzeichnis entfernt: {Directory}", directory);
+                removed++;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Warning(ex, "Konnte leeres Verzeichnis {Directory} nicht entfernen. Überspringe.", directory);
+                hadError = true;
+            }
+        }
+
+        return (removed, hadError);
     }
 }

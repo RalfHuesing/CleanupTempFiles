@@ -110,11 +110,12 @@ public static class Program
 
             var summary = cleanupTask.Result;
             Log.Information(
-                "Lauf abgeschlossen: {Directories} Verzeichnis(se) verarbeitet, {Files} Datei(en) {Verb} ({Bytes} Bytes), {ErrorDirs} Verzeichnis(se) mit Problemen.",
+                "Lauf abgeschlossen: {Directories} Verzeichnis(se) verarbeitet, {Files} Datei(en) {Verb} ({Bytes} Bytes), {EmptyDirs} leere Verzeichnis(se) entfernt, {ErrorDirs} Verzeichnis(se) mit Problemen.",
                 summary.DirectoriesProcessed,
                 summary.FilesAffected,
                 execute ? "gelöscht" : "würden gelöscht",
                 summary.BytesAffected,
+                summary.EmptyDirectoriesRemoved,
                 summary.DirectoriesWithErrors);
 
             return summary.DirectoriesWithErrors > 0 ? 3 : 0;
